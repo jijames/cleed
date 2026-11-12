@@ -23,3 +23,7 @@ go.work.sum
 .env
 
 .data/
+
+# local run logs (contain addresses and the feed list)
+cleed-err.log
+cleed_err*.txt
