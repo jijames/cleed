@@ -209,7 +209,38 @@ cleed explore https://github.com/radulucut/cleed-explore.git --remove
 
 #### Custom data path
 
-You can set the `CLEED_DATA_PATH` environment variable to specify a custom path for the data directory. All data will be stored in this directory (config, cache, etc).
+By default `cleed` stores its files in the OS user-specific directories:
+
+- **Config (lists, `config.json`):** `os.UserConfigDir()/cleed`
+  - Windows: `%AppData%\cleed`
+  - macOS: `~/Library/Application Support/cleed`
+  - Linux: `$XDG_CONFIG_HOME/cleed` (typically `~/.config/cleed`)
+- **Cached RSS feeds:** `os.UserCacheDir()/cleed`
+  - Windows: `%LocalAppData%\cleed`
+  - macOS: `~/Library/Caches/cleed`
+  - Linux: `$XDG_CACHE_HOME/cleed` (typically `~/.cache/cleed`)
+
+There are two ways to override these locations:
+
+1. **Environment variable.** Set `CLEED_DATA_PATH` to a directory and `cleed`
+   will store everything under it: `<CLEED_DATA_PATH>/config` and
+   `<CLEED_DATA_PATH>/cache`. This takes precedence over everything else and
+   is useful for portable installs / tests.
+2. **Configuration settings.** You can persist custom directories in
+   `config.json` (without setting an environment variable):
+
+   ```bash
+   # Move lists/etc. somewhere else (config.json itself stays in the OS
+   # user-config dir so it can be discovered on next run)
+   cleed config --config-path="D:/cleed-data/config"
+
+   # Move the cached RSS feeds somewhere else (e.g. onto a larger drive)
+   cleed config --feeds-path="D:/cleed-data/feeds"
+
+   # Pass an empty string to clear an override and fall back to the default
+   cleed config --config-path=""
+   cleed config --feeds-path=""
+   ```
 
 #### Help
 

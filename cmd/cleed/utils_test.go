@@ -1,11 +1,35 @@
 package cleed
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/radulucut/cleed/internal/storage"
 )
+
+func TestMain(m *testing.M) {
+	tmpDir, err := os.MkdirTemp("", "cleed_test_data_*")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "failed to create test data dir:", err)
+		os.Exit(1)
+	}
+	os.Setenv("CLEED_DATA_PATH", tmpDir)
+	code := m.Run()
+	os.Unsetenv("CLEED_DATA_PATH")
+	os.RemoveAll(tmpDir)
+	os.Exit(code)
+}
+
+func testConfigDir(t *testing.T) string {
+	return filepath.Join(os.Getenv("CLEED_DATA_PATH"), "config")
+}
+
+func testCacheDir(t *testing.T) string {
+	return filepath.Join(os.Getenv("CLEED_DATA_PATH"), "cache")
+}
 
 var (
 	defaultCurrentTime = time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)

@@ -37,6 +37,12 @@ Examples:
 
   # Set the miniflux token
   cleed config --miniflux-token="your_token_here"
+
+  # Override the config directory (lists, etc.). Pass "" to use the default.
+  cleed config --config-path="D:/cleed-data/config"
+
+  # Override the cached RSS feeds directory. Pass "" to use the default.
+  cleed config --feeds-path="D:/cleed-data/feeds"
 `,
 		RunE: r.RunConfig,
 	}
@@ -51,6 +57,8 @@ Examples:
 	flags.Uint("timeout", 30, "set the timeout in seconds for fetching feeds")
 	flags.Uint8("future-items", 1, "show or hide future items (0: hide, 1: show)")
 	flags.String("miniflux-token", "", "set the miniflux token")
+	flags.String("config-path", "", "override the directory where lists and other config files are stored (config.json itself stays in the OS user-config dir). Pass an empty string to use the default")
+	flags.String("feeds-path", "", "override the directory where cached RSS feeds are stored. Pass an empty string to use the default")
 
 	r.Cmd.AddCommand(cmd)
 }
@@ -104,6 +112,12 @@ func (r *Root) RunConfig(cmd *cobra.Command, args []string) error {
 	if cmd.Flag("miniflux-token").Changed {
 		token := cmd.Flag("miniflux-token").Value.String()
 		return r.feed.SetMinifluxToken(token)
+	}
+	if cmd.Flag("config-path").Changed {
+		return r.feed.SetConfigPath(cmd.Flag("config-path").Value.String())
+	}
+	if cmd.Flag("feeds-path").Changed {
+		return r.feed.SetFeedsPath(cmd.Flag("feeds-path").Value.String())
 	}
 	return r.feed.DisplayConfig()
 }

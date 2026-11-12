@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -32,12 +32,8 @@ func Test_Feed(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,11 +88,7 @@ RSS Feed        • Item 1
 
 `, out.String())
 
-	userCacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir := path.Join(userCacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	files, err := os.ReadDir(cacheDir)
 	if err != nil {
 		t.Fatal(err)
@@ -119,13 +111,13 @@ RSS Feed        • Item 1
 		FetchAfter: time.Unix(defaultCurrentTime.Unix()+60, 0),
 	}, cacheInfo[server.URL+"/atom"])
 
-	b, err := os.ReadFile(path.Join(cacheDir, "feed_"+url.QueryEscape(server.URL+"/rss")))
+	b, err := os.ReadFile(path.Join(cacheDir, _storage.FeedCacheFileName(server.URL+"/rss")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, rss, string(b))
 
-	b, err = os.ReadFile(path.Join(cacheDir, "feed_"+url.QueryEscape(server.URL+"/atom")))
+	b, err = os.ReadFile(path.Join(cacheDir, _storage.FeedCacheFileName(server.URL+"/atom")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,12 +136,8 @@ func Test_Feed_Raw(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,12 +217,8 @@ func Test_Feed_CachedOnly(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,11 +247,7 @@ func Test_Feed_CachedOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -318,12 +298,8 @@ func Test_Feed_HideFutureItems(t *testing.T) {
 	defer localStorageCleanup(t, storage)
 	storage.Init("0.1.0")
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,12 +369,8 @@ func Test_Feed_Search(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -476,12 +448,8 @@ func Test_Feed_SearchRegexp(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -610,12 +578,8 @@ func Test_Feed_With_Summary(t *testing.T) {
 	defer localStorageCleanup(t, storage)
 	storage.Init("0.1.0")
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -681,11 +645,7 @@ RSS Feed        • Item 1
 Displayed 4 items from 2 feeds (0 cached, 2 fetched) with 4 items in 0.00s
 `, out.String())
 
-	userCacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir := path.Join(userCacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	files, err := os.ReadDir(cacheDir)
 	if err != nil {
 		t.Fatal(err)
@@ -708,13 +668,13 @@ Displayed 4 items from 2 feeds (0 cached, 2 fetched) with 4 items in 0.00s
 		FetchAfter: time.Unix(defaultCurrentTime.Unix()+60, 0),
 	}, cacheInfo[server.URL+"/atom"])
 
-	b, err := os.ReadFile(path.Join(cacheDir, "feed_"+url.QueryEscape(server.URL+"/rss")))
+	b, err := os.ReadFile(path.Join(cacheDir, _storage.FeedCacheFileName(server.URL+"/rss")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, rss, string(b))
 
-	b, err = os.ReadFile(path.Join(cacheDir, "feed_"+url.QueryEscape(server.URL+"/atom")))
+	b, err = os.ReadFile(path.Join(cacheDir, _storage.FeedCacheFileName(server.URL+"/atom")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -733,12 +693,8 @@ func Test_Feed_Specific_List(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -794,12 +750,8 @@ func Test_Feed_NotModified(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -817,11 +769,7 @@ func Test_Feed_NotModified(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -862,12 +810,8 @@ func Test_Feed_CacheControl(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -926,12 +870,8 @@ func Test_Feed_RetryAfter(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -950,11 +890,7 @@ func Test_Feed_RetryAfter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -1005,12 +941,8 @@ func Test_Feed_FetchAfter_Load_From_Cache(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1023,11 +955,7 @@ func Test_Feed_FetchAfter_Load_From_Cache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -1077,12 +1005,8 @@ func Test_Feed_Limit(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1100,11 +1024,7 @@ func Test_Feed_Limit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -1142,12 +1062,8 @@ func Test_Feed_Since_Period(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1166,11 +1082,7 @@ func Test_Feed_Since_Period(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -1214,12 +1126,8 @@ func Test_Feed_Since_Date(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1238,11 +1146,7 @@ func Test_Feed_Since_Date(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -1286,12 +1190,8 @@ func Test_Feed_Since_Last(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1310,11 +1210,7 @@ func Test_Feed_Since_Last(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -1332,7 +1228,7 @@ func Test_Feed_Since_Last(t *testing.T) {
 		Version: "0.1.0",
 		LastRun: time.Unix(defaultCurrentTime.Unix()-int64(10*60*60), 0), // 10 hours ago
 	}
-	configPath := path.Join(configDir, "cleed_test", "config.json")
+	configPath := path.Join(testConfigDir(t), "config.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1378,12 +1274,8 @@ func Test_Feed_Since_Last_With_Summary(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1402,11 +1294,7 @@ func Test_Feed_Since_Last_With_Summary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -1425,7 +1313,7 @@ func Test_Feed_Since_Last_With_Summary(t *testing.T) {
 		LastRun: time.Unix(defaultCurrentTime.Unix()-int64(10*60*60), 0), // 10 hours ago
 		Summary: 1,
 	}
-	configPath := path.Join(configDir, "cleed_test", "config.json")
+	configPath := path.Join(testConfigDir(t), "config.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1472,11 +1360,6 @@ func Test_Config_Dir(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	feed := internal.NewTerminalFeed(timeMock, printer, storage)
 
 	root, err := NewRoot("0.1.0", timeMock, printer, storage, feed)
@@ -1486,7 +1369,7 @@ func Test_Config_Dir(t *testing.T) {
 
 	err = root.Cmd.Execute()
 	assert.NoError(t, err)
-	assert.Equal(t, path.Join(configDir, "cleed_test")+"\n", out.String())
+	assert.Equal(t, testConfigDir(t)+"\n", out.String())
 }
 
 func Test_Cache_Dir(t *testing.T) {
@@ -1501,11 +1384,6 @@ func Test_Cache_Dir(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	feed := internal.NewTerminalFeed(timeMock, printer, storage)
 
 	root, err := NewRoot("0.1.0", timeMock, printer, storage, feed)
@@ -1515,7 +1393,7 @@ func Test_Cache_Dir(t *testing.T) {
 
 	err = root.Cmd.Execute()
 	assert.NoError(t, err)
-	assert.Equal(t, path.Join(cacheDir, "cleed_test")+"\n", out.String())
+	assert.Equal(t, testCacheDir(t)+"\n", out.String())
 }
 
 func Test_Config_And_Cache_Dir_With_Custom_Data_Path(t *testing.T) {
@@ -1525,9 +1403,10 @@ func Test_Config_And_Cache_Dir_With_Custom_Data_Path(t *testing.T) {
 	timeMock := mocks.NewMockTime(ctrl)
 	timeMock.EXPECT().Now().Return(defaultCurrentTime).AnyTimes()
 
-	customPath := path.Join(os.TempDir(), "cleed_custom_path_test")
+	customPath := filepath.Join(os.TempDir(), "cleed_custom_path_test")
+	origDataPath := os.Getenv("CLEED_DATA_PATH")
 	os.Setenv("CLEED_DATA_PATH", customPath)
-	defer os.Unsetenv("CLEED_DATA_PATH")
+	defer os.Setenv("CLEED_DATA_PATH", origDataPath)
 	defer os.RemoveAll(customPath)
 
 	out := new(bytes.Buffer)
@@ -1544,7 +1423,7 @@ func Test_Config_And_Cache_Dir_With_Custom_Data_Path(t *testing.T) {
 
 	err = root.Cmd.Execute()
 	assert.NoError(t, err)
-	assert.Equal(t, path.Join(customPath, "config")+"\n", out.String())
+	assert.Equal(t, filepath.Join(customPath, "config")+"\n", out.String())
 
 	root, err = NewRoot("0.1.0", timeMock, printer, storage, feed)
 	assert.NoError(t, err)
@@ -1553,7 +1432,7 @@ func Test_Config_And_Cache_Dir_With_Custom_Data_Path(t *testing.T) {
 
 	err = root.Cmd.Execute()
 	assert.NoError(t, err)
-	assert.Equal(t, path.Join(customPath, "cache")+"\n", out.String())
+	assert.Equal(t, filepath.Join(customPath, "cache")+"\n", out.String())
 }
 
 func Test_Cache_Info(t *testing.T) {

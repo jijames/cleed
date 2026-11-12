@@ -46,13 +46,64 @@ func (s *LocalStorage) AddToList(urls []string, list string) error {
 	return nil
 }
 
+func (s *LocalStorage) RemoveFromAllLists(urls []string) ([]bool, error) {
+	lists, err := s.LoadLists()
+	if err != nil {
+		return nil, err
+	}
+	results := make([]bool, len(urls))
+	for i := range lists {
+		listResults, err := s.removeFromListFile(urls, lists[i])
+		if err != nil {
+			return nil, err
+		}
+		for j := range urls {
+			if listResults[j] {
+				results[j] = true
+			}
+		}
+	}
+	s.tidyCachesAfterGlobalRemove(urls)
+	return results, nil
+}
+
+func (s *LocalStorage) tidyCachesAfterGlobalRemove(urls []string) {
+	m := make(map[string]*ListItem)
+	lists, err := s.LoadLists()
+	if err != nil {
+		return
+	}
+	for i := range lists {
+		err = s.LoadFeedsFromList(m, lists[i])
+		if err != nil {
+			return
+		}
+	}
+	feedsToRemove := make([]string, 0)
+	for i := range urls {
+		if _, ok := m[urls[i]]; !ok {
+			feedsToRemove = append(feedsToRemove, urls[i])
+		}
+	}
+	s.RemoveFeedCaches(feedsToRemove)
+}
+
 func (s *LocalStorage) RemoveFromList(urls []string, list string) ([]bool, error) {
+	results, err := s.removeFromListFile(urls, list)
+	if err != nil {
+		return nil, err
+	}
+	s.tidyCachesAfterRemove(urls, list)
+	return results, nil
+}
+
+func (s *LocalStorage) removeFromListFile(urls []string, list string) ([]bool, error) {
 	l, err := s.GetFeedsFromList(list)
 	if err != nil {
 		return nil, err
 	}
 	if len(l) == 0 {
-		return nil, fmt.Errorf("no items in list: %s", list)
+		return make([]bool, len(urls)), nil
 	}
 	results := make([]bool, len(urls))
 	remaining := make([]*ListItem, 0)
@@ -81,7 +132,6 @@ func (s *LocalStorage) RemoveFromList(urls []string, list string) ([]bool, error
 	if err != nil {
 		return nil, err
 	}
-	s.tidyCachesAfterRemove(urls, list)
 	return results, nil
 }
 

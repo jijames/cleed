@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/radulucut/cleed/internal/utils"
 )
@@ -14,6 +15,20 @@ const (
 	listsDir   = "lists"
 	exploreDir = "explore"
 )
+
+// defaultLocalConfigDir and defaultLocalCacheDir are used when set from main and
+// CLEED_DATA_PATH is unset.
+var (
+	defaultLocalConfigDir string
+	defaultLocalCacheDir  string
+)
+
+// SetDefaultLocalDirs sets the default config and cache directories when
+// CLEED_DATA_PATH is unset. Pass empty strings to clear.
+func SetDefaultLocalDirs(configDir, cacheDir string) {
+	defaultLocalConfigDir = configDir
+	defaultLocalCacheDir = cacheDir
+}
 
 type LocalStorage struct {
 	name string
@@ -33,24 +48,11 @@ func NewLocalStorage(
 }
 
 func (s *LocalStorage) Init(version string) error {
-	configDir, err := s.JoinConfigDir("")
+	bootstrapDir, err := s.bootstrapConfigDir()
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(configDir, 0755)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(path.Join(configDir, listsDir), 0755)
-	if err != nil {
-		return err
-	}
-	cacheDir, err := s.JoinCacheDir("")
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(cacheDir, 0755)
-	if err != nil {
+	if err := os.MkdirAll(bootstrapDir, 0755); err != nil {
 		return err
 	}
 	_, err = s.LoadConfig()
@@ -62,8 +64,25 @@ func (s *LocalStorage) Init(version string) error {
 				BatchSize: 100,
 				ColorMap:  make(map[uint8]uint8),
 			}
-			err = s.SaveConfig()
+			if err := s.SaveConfig(); err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
+	}
+	listsPath, err := s.JoinConfigDir(listsDir)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(listsPath, 0755); err != nil {
+		return err
+	}
+	cacheDir, err := s.JoinCacheDir("")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return err
 	}
 	return s.Migrate()
@@ -79,43 +98,96 @@ func (s *LocalStorage) ClearAll() error {
 	if err != nil {
 		return err
 	}
-	err = os.RemoveAll(configDir)
-	if err != nil {
+	if err := os.RemoveAll(configDir); err != nil {
 		return err
 	}
 	cacheDir, err := s.JoinCacheDir("")
 	if err != nil {
 		return err
 	}
-	err = os.RemoveAll(cacheDir)
+	if err := os.RemoveAll(cacheDir); err != nil {
+		return err
+	}
+	bootstrapDir, err := s.bootstrapConfigDir()
 	if err != nil {
+		return err
+	}
+	if err := os.RemoveAll(bootstrapDir); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *LocalStorage) JoinCacheDir(file string) (string, error) {
-	pathOverride := os.Getenv(dataPathOverrideName)
-	if pathOverride != "" {
-		return path.Join(pathOverride, "cache", file), nil
+// bootstrapConfigDir returns the directory that always holds config.json.
+// Resolution order:
+//  1. CLEED_DATA_PATH env override -> <CLEED_DATA_PATH>/config
+//  2. defaultLocalConfigDir (set from main) or OS user config directory
+func (s *LocalStorage) bootstrapConfigDir() (string, error) {
+	if p := os.Getenv(dataPathOverrideName); p != "" {
+		return filepath.Join(p, "config"), nil
 	}
-	base, err := os.UserCacheDir()
+	if defaultLocalConfigDir != "" {
+		return resolveLocalDir(defaultLocalConfigDir)
+	}
+	appBase, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return path.Join(base, s.name, file), nil
+	return filepath.Join(appBase, s.name), nil
 }
 
-func (s *LocalStorage) JoinConfigDir(file string) (string, error) {
-	pathOverride := os.Getenv(dataPathOverrideName)
-	if pathOverride != "" {
-		return path.Join(pathOverride, "config", file), nil
+// bootstrapCacheDir returns the default cache directory used when no
+// `feedsPath` override is configured.
+//  1. CLEED_DATA_PATH env override -> <CLEED_DATA_PATH>/cache
+//  2. defaultLocalCacheDir (set from main) or OS user cache directory
+func (s *LocalStorage) bootstrapCacheDir() (string, error) {
+	if p := os.Getenv(dataPathOverrideName); p != "" {
+		return filepath.Join(p, "cache"), nil
 	}
-	base, err := os.UserConfigDir()
+	if defaultLocalCacheDir != "" {
+		return resolveLocalDir(defaultLocalCacheDir)
+	}
+	appBase, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
 	}
-	return path.Join(base, s.name, file), nil
+	return filepath.Join(appBase, s.name), nil
+}
+
+func resolveLocalDir(p string) (string, error) {
+	p = filepath.Clean(p)
+	if filepath.IsAbs(p) {
+		return p, nil
+	}
+	return filepath.Abs(p)
+}
+
+// JoinConfigDir returns a path under the configuration directory. If the user
+// configured a custom `configPath` it is honoured, otherwise the bootstrap
+// config dir is used. Note: config.json itself is always read from / written
+// to the bootstrap dir (see LoadConfig / SaveConfig).
+func (s *LocalStorage) JoinConfigDir(file string) (string, error) {
+	if s.config != nil && s.config.ConfigPath != "" && defaultLocalConfigDir == "" {
+		return filepath.Join(s.config.ConfigPath, file), nil
+	}
+	base, err := s.bootstrapConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, file), nil
+}
+
+// JoinCacheDir returns a path under the cache (RSS feed) directory. The
+// `feedsPath` setting overrides the bootstrap cache dir when set.
+func (s *LocalStorage) JoinCacheDir(file string) (string, error) {
+	if s.config != nil && s.config.FeedsPath != "" && defaultLocalCacheDir == "" {
+		return filepath.Join(s.config.FeedsPath, file), nil
+	}
+	base, err := s.bootstrapCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, file), nil
 }
 
 func (s *LocalStorage) joinListsDir(file string) (string, error) {

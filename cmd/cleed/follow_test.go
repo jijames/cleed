@@ -37,11 +37,7 @@ func Test_Follow_Default(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "added 2 feeds to list: default\n", out.String())
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
+	listsDir := path.Join(testConfigDir(t), "lists")
 	files, err := os.ReadDir(listsDir)
 	if err != nil {
 		t.Fatal(err)
@@ -82,11 +78,7 @@ func Test_Follow_Custom_List(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "added 1 feed to list: test\n", out.String())
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
+	listsDir := path.Join(testConfigDir(t), "lists")
 	files, err := os.ReadDir(listsDir)
 	if err != nil {
 		t.Fatal(err)
@@ -123,11 +115,7 @@ func Test_Follow_Invalid_URL(t *testing.T) {
 	err = root.Cmd.Execute()
 	assert.EqualError(t, err, "failed to parse URL: invalid")
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
+	listsDir := path.Join(testConfigDir(t), "lists")
 	files, err := os.ReadDir(listsDir)
 	if err != nil {
 		t.Fatal(err)

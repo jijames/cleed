@@ -2,6 +2,8 @@ package storage
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/url"
@@ -13,6 +15,7 @@ import (
 
 const (
 	cacheInfoFile = "cache_info"
+	feedPrefix    = "feed_"
 )
 
 type CacheInfoItem struct {
@@ -67,7 +70,7 @@ func (s *LocalStorage) SaveCacheInfo(cacheinfo map[string]*CacheInfoItem) error 
 }
 
 func (s *LocalStorage) SaveFeedCache(r io.Reader, name string) error {
-	path, err := s.JoinCacheDir("feed_" + url.QueryEscape(name))
+	path, err := s.JoinCacheDir(FeedCacheFileName(name))
 	if err != nil {
 		return err
 	}
@@ -81,11 +84,22 @@ func (s *LocalStorage) SaveFeedCache(r io.Reader, name string) error {
 }
 
 func (s *LocalStorage) OpenFeedCache(name string) (io.ReadCloser, error) {
-	path, err := s.JoinCacheDir("feed_" + url.QueryEscape(name))
+	path, err := s.JoinCacheDir(FeedCacheFileName(name))
 	if err != nil {
 		return nil, err
 	}
-	return os.Open(path)
+	f, err := os.Open(path)
+	if err == nil {
+		return f, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, err
+	}
+	legacyPath, lerr := s.JoinCacheDir(legacyFeedCacheFileName(name))
+	if lerr != nil {
+		return nil, lerr
+	}
+	return os.Open(legacyPath)
 }
 
 func (s *LocalStorage) RemoveFeedCaches(names []string) error {
@@ -101,13 +115,27 @@ func (s *LocalStorage) RemoveFeedCaches(names []string) error {
 		return err
 	}
 	for i := range names {
-		path, err := s.JoinCacheDir("feed_" + url.QueryEscape(names[i]))
+		path, err := s.JoinCacheDir(FeedCacheFileName(names[i]))
 		if err != nil {
 			continue
 		}
 		os.Remove(path)
+		legacyPath, err := s.JoinCacheDir(legacyFeedCacheFileName(names[i]))
+		if err != nil {
+			continue
+		}
+		os.Remove(legacyPath)
 	}
 	return nil
+}
+
+func FeedCacheFileName(name string) string {
+	hash := sha256.Sum256([]byte(name))
+	return feedPrefix + hex.EncodeToString(hash[:])
+}
+
+func legacyFeedCacheFileName(name string) string {
+	return feedPrefix + url.QueryEscape(name)
 }
 
 func getCacheInfoItemLine(item *CacheInfoItem) []byte {

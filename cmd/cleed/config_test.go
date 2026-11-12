@@ -42,6 +42,8 @@ Styling: enabled
 Color map:
 Summary: disabled
 Future items: show
+Config path:
+Feeds path:
 Miniflux token:
 `, out.String())
 

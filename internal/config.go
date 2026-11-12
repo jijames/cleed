@@ -46,10 +46,61 @@ func (f *TerminalFeed) DisplayConfig() error {
 		futureItems = "hide"
 	}
 	f.printer.Println("Future items:", futureItems)
+	if config.ConfigPath != "" {
+		f.printer.Println("Config path:", config.ConfigPath)
+	} else {
+		f.printer.Println("Config path:")
+	}
+	if config.FeedsPath != "" {
+		f.printer.Println("Feeds path:", config.FeedsPath)
+	} else {
+		f.printer.Println("Feeds path:")
+	}
 	if config.MinifluxToken != "" {
 		f.printer.Println("Miniflux token:", "******"+config.MinifluxToken[len(config.MinifluxToken)-6:])
 	} else {
 		f.printer.Println("Miniflux token:")
+	}
+	return nil
+}
+
+// SetConfigPath updates the override for the configuration directory (lists,
+// etc.). Pass an empty string to clear the override and fall back to the
+// default location (e.g. %AppData%/cleed on Windows). Note: config.json
+// itself always lives in the bootstrap location.
+func (f *TerminalFeed) SetConfigPath(p string) error {
+	config, err := f.storage.LoadConfig()
+	if err != nil {
+		return utils.NewInternalError("failed to load config: " + err.Error())
+	}
+	config.ConfigPath = p
+	if err := f.storage.SaveConfig(); err != nil {
+		return utils.NewInternalError("failed to save config: " + err.Error())
+	}
+	if p == "" {
+		f.printer.Println("config path was cleared (using default)")
+	} else {
+		f.printer.Println("config path was updated")
+	}
+	return nil
+}
+
+// SetFeedsPath updates the override for the cached RSS feeds directory.
+// Pass an empty string to clear the override and fall back to the default
+// location (e.g. %LocalAppData%/cleed on Windows).
+func (f *TerminalFeed) SetFeedsPath(p string) error {
+	config, err := f.storage.LoadConfig()
+	if err != nil {
+		return utils.NewInternalError("failed to load config: " + err.Error())
+	}
+	config.FeedsPath = p
+	if err := f.storage.SaveConfig(); err != nil {
+		return utils.NewInternalError("failed to save config: " + err.Error())
+	}
+	if p == "" {
+		f.printer.Println("feeds path was cleared (using default)")
+	} else {
+		f.printer.Println("feeds path was updated")
 	}
 	return nil
 }

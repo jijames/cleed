@@ -68,16 +68,36 @@ func (f *TerminalFeed) Follow(urls []string, list string) error {
 	return nil
 }
 
+func (f *TerminalFeed) normalizeFeedURLs(urls []string) ([]string, error) {
+	for i := range urls {
+		u, err := url.ParseRequestURI(urls[i])
+		if err != nil {
+			return nil, utils.NewInternalError("failed to parse URL: " + urls[i])
+		}
+		urls[i] = u.String()
+	}
+	return urls, nil
+}
+
 func (f *TerminalFeed) Unfollow(urls []string, list string) error {
-	results, err := f.storage.RemoveFromList(urls, list)
+	urls, err := f.normalizeFeedURLs(urls)
+	if err != nil {
+		return err
+	}
+	var results []bool
+	if list == "" {
+		results, err = f.storage.RemoveFromAllLists(urls)
+	} else {
+		results, err = f.storage.RemoveFromList(urls, list)
+	}
 	if err != nil {
 		return utils.NewInternalError(err.Error())
 	}
 	for i := range urls {
 		if results[i] {
-			f.printer.Print(urls[i] + " was removed from the list\n")
+			f.printer.Print(urls[i] + " was unfollowed\n")
 		} else {
-			f.printer.Print(f.printer.ColorForeground(urls[i]+" was not found in the list\n", 11))
+			f.printer.Print(f.printer.ColorForeground(urls[i]+" was not found\n", 11))
 		}
 	}
 	return nil
@@ -108,6 +128,35 @@ func (f *TerminalFeed) ListFeeds(list string) error {
 		f.printer.Printf("%s  %s\n", feeds[i].AddedAt.Format("2006-01-02 15:04:05"), feeds[i].Address)
 	}
 	f.printer.Println("Total: " + utils.Pluralize(int64(len(feeds)), "feed"))
+	return nil
+}
+
+func (f *TerminalFeed) ListAllFeeds() error {
+	lists, err := f.storage.LoadLists()
+	if err != nil {
+		return utils.NewInternalError("failed to list lists: " + err.Error())
+	}
+	if len(lists) == 0 {
+		f.printer.Println("Total: 0 feeds")
+		return nil
+	}
+	slices.Sort(lists)
+	total := 0
+	for i := range lists {
+		feeds, err := f.storage.GetFeedsFromList(lists[i])
+		if err != nil {
+			return utils.NewInternalError("failed to list feeds: " + err.Error())
+		}
+		for j := range feeds {
+			f.printer.Printf("%s  %s  %s\n",
+				lists[i],
+				feeds[j].AddedAt.Format("2006-01-02 15:04:05"),
+				feeds[j].Address,
+			)
+			total++
+		}
+	}
+	f.printer.Println("Total: " + utils.Pluralize(int64(total), "feed"))
 	return nil
 }
 

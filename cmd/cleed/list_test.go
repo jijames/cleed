@@ -28,13 +28,8 @@ func Test_List(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,6 +83,60 @@ func Test_List_No_List(t *testing.T) {
 	assert.Equal(t, "default\n", out.String())
 }
 
+func Test_List_All_Feeds(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	timeMock := mocks.NewMockTime(ctrl)
+	timeMock.EXPECT().Now().Return(defaultCurrentTime).AnyTimes()
+
+	out := new(bytes.Buffer)
+	printer := internal.NewPrinter(nil, out, out)
+	storage := _storage.NewLocalStorage("cleed_test", timeMock)
+	defer localStorageCleanup(t, storage)
+
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(path.Join(listsDir, "default"),
+		[]byte(fmt.Sprintf("%d %s\n",
+			defaultCurrentTime.Unix(), "https://example.com",
+		),
+		), 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(path.Join(listsDir, "test"),
+		[]byte(fmt.Sprintf("%d %s\n",
+			defaultCurrentTime.Unix(), "https://test.com",
+		),
+		), 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	feed := internal.NewTerminalFeed(timeMock, printer, storage)
+
+	root, err := NewRoot("0.1.0", timeMock, printer, storage, feed)
+	assert.NoError(t, err)
+
+	os.Args = []string{"cleed", "list", "--feeds"}
+
+	err = root.Cmd.Execute()
+	assert.NoError(t, err)
+	assert.Equal(t, fmt.Sprintf("default  %s  %s\ntest  %s  %s\n%s\n",
+		defaultCurrentTime.Local().Format("2006-01-02 15:04:05"),
+		"https://example.com",
+		defaultCurrentTime.Local().Format("2006-01-02 15:04:05"),
+		"https://test.com",
+		"Total: 2 feeds",
+	), out.String())
+}
+
 func Test_List_Feeds(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -100,13 +149,8 @@ func Test_List_Feeds(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,13 +195,8 @@ func Test_List_Rename(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,13 +246,8 @@ func Test_List_Merge(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,12 +310,8 @@ func Test_List_Remove(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,11 +336,7 @@ func Test_List_Remove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -390,15 +416,15 @@ func Test_List_Remove(t *testing.T) {
 		FetchAfter: time.Unix(0, 0),
 	}, cacheInfo["https://test.com"])
 
-	assert.NoFileExists(t, path.Join(cacheDir, "feed_"+url.QueryEscape("https://example2.com")))
+	assert.NoFileExists(t, path.Join(cacheDir, _storage.FeedCacheFileName("https://example2.com")))
 
-	b, err := os.ReadFile(path.Join(cacheDir, "feed_"+url.QueryEscape("https://example.com")))
+	b, err := os.ReadFile(path.Join(cacheDir, _storage.FeedCacheFileName("https://example.com")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, "example", string(b))
 
-	b, err = os.ReadFile(path.Join(cacheDir, "feed_"+url.QueryEscape("https://test.com")))
+	b, err = os.ReadFile(path.Join(cacheDir, _storage.FeedCacheFileName("https://test.com")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -417,13 +443,8 @@ func Test_List_ImportFromFile(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -481,13 +502,8 @@ func Test_List_ExportToFile(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -535,13 +551,8 @@ func Test_List_ImportFromOPML(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -556,7 +567,7 @@ func Test_List_ImportFromOPML(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	importFilePath := path.Join(configDir, "import.opml")
+	importFilePath := path.Join(testConfigDir(t), "import.opml")
 	err = os.WriteFile(importFilePath,
 		[]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <opml version="1.0">
@@ -609,13 +620,8 @@ func Test_List_ImportFromOPML_Multiple_Lists(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -630,7 +636,7 @@ func Test_List_ImportFromOPML_Multiple_Lists(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	importFilePath := path.Join(configDir, "import.opml")
+	importFilePath := path.Join(testConfigDir(t), "import.opml")
 	err = os.WriteFile(importFilePath,
 		[]byte(`<?xml version="1.0" encoding="UTF-8"?>
 <opml version="1.0">
@@ -696,13 +702,8 @@ func Test_List_ExportToOPML(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -718,11 +719,7 @@ func Test_List_ExportToOPML(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -741,7 +738,7 @@ func Test_List_ExportToOPML(t *testing.T) {
 	root, err := NewRoot("0.1.0", timeMock, printer, storage, feed)
 	assert.NoError(t, err)
 
-	exportPath := path.Join(configDir, "export.opml")
+	exportPath := path.Join(testConfigDir(t), "export.opml")
 	os.Args = []string{"cleed", "list", "test", "--export-to-opml", exportPath}
 
 	err = root.Cmd.Execute()
@@ -780,13 +777,8 @@ func Test_List_ExportToOPML_CachedOnly(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -801,11 +793,7 @@ func Test_List_ExportToOPML_CachedOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -820,7 +808,7 @@ func Test_List_ExportToOPML_CachedOnly(t *testing.T) {
 	root, err := NewRoot("0.1.0", timeMock, printer, storage, feed)
 	assert.NoError(t, err)
 
-	exportPath := path.Join(configDir, "export.opml")
+	exportPath := path.Join(testConfigDir(t), "export.opml")
 	os.Args = []string{"cleed", "list", "test", "--export-to-opml", exportPath, "-C"}
 
 	err = root.Cmd.Execute()
@@ -857,13 +845,8 @@ func Test_List_ExportToOPML_Multiple_Lists(t *testing.T) {
 	storage := _storage.NewLocalStorage("cleed_test", timeMock)
 	defer localStorageCleanup(t, storage)
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	listsDir := path.Join(configDir, "cleed_test", "lists")
-	err = os.MkdirAll(listsDir, 0700)
+	listsDir := path.Join(testConfigDir(t), "lists")
+	err := os.MkdirAll(listsDir, 0700)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -890,11 +873,7 @@ func Test_List_ExportToOPML_Multiple_Lists(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cacheDir = path.Join(cacheDir, "cleed_test")
+	cacheDir := testCacheDir(t)
 	err = os.MkdirAll(cacheDir, 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -913,7 +892,7 @@ func Test_List_ExportToOPML_Multiple_Lists(t *testing.T) {
 	root, err := NewRoot("0.1.0", timeMock, printer, storage, feed)
 	assert.NoError(t, err)
 
-	exportPath := path.Join(configDir, "export.opml")
+	exportPath := path.Join(testConfigDir(t), "export.opml")
 	os.Args = []string{"cleed", "list", "--export-to-opml", exportPath}
 
 	err = root.Cmd.Execute()

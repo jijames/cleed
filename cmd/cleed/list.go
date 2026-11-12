@@ -14,6 +14,9 @@ Examples:
   # Show all lists
   cleed list
 
+  # Show all feeds across every list
+  cleed list --feeds
+
   # Show all feeds in a list
   cleed list mylist
 
@@ -53,6 +56,7 @@ Examples:
 	}
 
 	flags := cmd.Flags()
+	flags.Bool("feeds", false, "show all feeds from every list")
 	flags.String("rename", "", "rename a list")
 	flags.String("merge", "", "merge a list")
 	flags.Bool("remove", false, "remove a list")
@@ -83,6 +87,13 @@ func (r *Root) RunList(cmd *cobra.Command, args []string) error {
 		return r.feed.ExportToOPML(exportToOPML, list, cachedOnly)
 	}
 	if list == "" {
+		showFeeds, err := cmd.Flags().GetBool("feeds")
+		if err != nil {
+			return err
+		}
+		if showFeeds {
+			return r.feed.ListAllFeeds()
+		}
 		return r.feed.Lists()
 	}
 	rename := cmd.Flag("rename").Value.String()
